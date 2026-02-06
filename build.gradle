@@ -1,0 +1,175 @@
+plugins {
+    id 'java'
+    id 'application'
+    id 'org.beryx.runtime' version '1.13.0'
+}
+
+group = 'com.vaultify'
+version = '0.1-beta'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'org.postgresql:postgresql:42.7.4'
+    implementation 'com.google.code.gson:gson:2.10.1'
+    implementation 'io.github.cdimascio:dotenv-java:3.0.0'
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.0'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+sourceSets {
+    main {
+        java {
+            srcDirs = ['src']
+            exclude 'test/**'
+        }
+        resources {
+            srcDirs = ['resources']
+        }
+    }
+    test {
+        java {
+            srcDirs = ['src/test/java']
+        }
+    }
+}
+
+application {
+    mainClass = 'com.vaultify.app.VaultifyApplication'
+}
+
+// Configure the default 'run' task to accept stdin
+run {
+    standardInput = System.in
+}
+
+jar {
+    // Ensure duplicate classes/resources don't break packaging
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+
+    // Jar manifest (for java -jar)
+    manifest {
+        attributes(
+                'Main-Class': 'com.vaultify.app.VaultifyApplication'
+        )
+    }
+
+    // Build fat jar (includes all runtime dependencies)
+    from {
+        configurations.runtimeClasspath.collect { file ->
+            file.isDirectory() ? file : zipTree(file)
+        }
+    }
+}
+
+
+
+tasks.register('runLocal', JavaExec) {
+    group = "vaultify"
+    description = "Run Vaultify locally without Docker"
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.vaultify.app.VaultifyApplication'
+    standardInput = System.in
+}
+
+tasks.register('rebuild') {
+    group = "vaultify"
+    description = "Clean and build the entire project"
+    dependsOn 'clean', 'build'
+}
+
+tasks.register('dockerBuild') {
+    group = "vaultify"
+    description = "Build Docker images after building jar"
+    dependsOn 'build'
+    doLast {
+        exec {
+            commandLine 'docker', 'compose', 'build'
+        }
+    }
+}
+
+test {
+    useJUnitPlatform()
+}
+
+// ============================================
+// NATIVE APPLICATION PACKAGING
+// ============================================
+
+// Runtime plugin for jpackage (creates native installers)
+runtime {
+    options = ['--strip-debug', '--compress', '2', '--no-header-files', '--no-man-pages']
+    modules = ['java.base', 'java.sql', 'java.naming', 'java.management', 'java.desktop']
+    
+    jpackage {
+        imageName = 'Vaultify'
+        installerName = 'Vaultify'
+        appVersion = '0.1.0'
+        installerOptions = [
+            '--vendor', 'Vaultify Team',
+            '--description', 'Secure Credential Vault System',
+            '--copyright', 'Copyright 2025'
+        ]
+        
+        // Platform-specific options
+        if (org.gradle.internal.os.OperatingSystem.current().isWindows()) {
+            installerType = 'msi'
+            installerOptions += [
+                '--win-menu',
+                '--win-shortcut',
+                '--win-dir-chooser'
+            ]
+        } else if (org.gradle.internal.os.OperatingSystem.current().isMacOsX()) {
+            installerType = 'dmg'
+            installerOptions += [
+                '--mac-package-name', 'Vaultify'
+            ]
+        } else if (org.gradle.internal.os.OperatingSystem.current().isLinux()) {
+            installerType = 'deb'
+            installerOptions += [
+                '--linux-shortcut'
+            ]
+        }
+    }
+}
+
+// Task to create a platform-specific native installer
+tasks.register('createInstaller') {
+    group = 'distribution'
+    description = 'Create native installer for current platform (Windows: .msi, Mac: .dmg, Linux: .deb)'
+    dependsOn 'jpackage'
+}
+
+// Task to create cross-platform JAR (works everywhere)
+tasks.register('createPortableJar', Copy) {
+    group = 'distribution'
+    description = 'Create portable executable JAR for all platforms'
+    dependsOn 'jar'
+    from layout.buildDirectory.file('libs/Vaultify-0.1-beta.jar')
+    into layout.buildDirectory.dir('distributions/vaultify/src')
+    rename { 'vaultify.jar' }
+    doLast {
+        // Create launcher scripts
+        def distDir = layout.buildDirectory.dir('distributions/vaultify').get().asFile
+        
+        // Windows batch script
+        new File(distDir, 'vaultify.bat').text = '''@echo off
+java -jar src/vaultify.jar
+pause
+'''
+        
+        // Unix shell script
+        def unixScript = new File(distDir, 'vaultify.sh')
+        unixScript.text = '''#!/bin/bash
+java -jar src/vaultify.jar
+'''
+        unixScript.setExecutable(true)
+        
+        println "✓ Portable JAR created in: ${distDir}"
+        println "  Windows: Run vaultify.bat"
+        println "  Mac/Linux: Run ./vaultify.sh"
+    }
+}
