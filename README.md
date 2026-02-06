@@ -199,20 +199,13 @@ Configuration is handled through the provided config file in the release.
 
 # 👤 Author
 
-Het Mistri
+Raj Amrutiya
 
 🔗 LinkedIn:
-https://www.linkedin.com/in/het-mistri-7a52a533a/
+https://www.linkedin.com/in/raj-amrutiya-3a5766248/
 
 💻 GitHub:
-https://github.com/HetMistri
-
-# 🐞 Reporting Issues
-
-If you encounter bugs or unclear behavior:
-
-📌 Report issues here:
-https://github.com/HetMistri/Vaultify/issues
+https://github.com/Raj-Amrutiya
 
 🙌 Thank You for Using Vaultify
 
