@@ -60,7 +60,7 @@ You do not need cryptography knowledge—Vaultify handles this internally.
 # 📦 Download & Run
 Step 1 — Download Launcher
 
-Visit the Releases page on GitHub or https://github.com/HetMistri/Vaultify/releases/tag/Launcher
+Visit the Releases page on GitHub or https://github.com/Raj-Amrutiya/Vaultify.git
 
 Download the latest vaultify launcher
 
